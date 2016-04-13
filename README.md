@@ -28,7 +28,7 @@ github "carlosypunto/RxRealm"
 
 ## Requirements
 
-RxRealm requires Swift 2.0 and RxSwift (2.0.0-beta).
+RxRealm tested with Swift 2.2 and RxSwift 2.2.0.
 
 ## License
 
