@@ -45,37 +45,27 @@ public extension Realm {
   - parameter completion:     Completion closure that can contain an error
   - parameter operation:      Operation closure to save in a given realm
   */
-    private static func realmOperationInThread(thread: RealmThread, writeOperation: Bool, completion: RealmError? -> Void, operation: OperationClosure) {
+    private func realmOperationInThread(thread: RealmThread, writeOperation: Bool, completion: RealmError? -> Void, operation: OperationClosure) {
         switch thread {
         case .MainThread:
             if !NSThread.isMainThread() {
                 completion(.WrongThread)
             }
             do {
-                let realm = try Realm()
-                if writeOperation { realm.beginWrite() }
-                operation(realm: realm)
-                if writeOperation { try! realm.commitWrite() }
+                if writeOperation { self.beginWrite() }
+                operation(realm: self)
+                if writeOperation { try! self.commitWrite() }
                 completion(nil)
-            }
-            catch {
-                completion(.InvalidRealm)
             }
         case .BackgroundThread:
             let priority = DISPATCH_QUEUE_PRIORITY_DEFAULT
             dispatch_async(dispatch_get_global_queue(priority, 0)) {
                 do {
-                    let realm = try Realm()
-                    if writeOperation { realm.beginWrite() }
-                    operation(realm: realm)
-                    if writeOperation { try! realm.commitWrite() }
+                    if writeOperation { self.beginWrite() }
+                    operation(realm: self)
+                    if writeOperation { try! self.commitWrite() }
                     dispatch_async(dispatch_get_main_queue()) {
                         completion(nil)
-                    }
-                }
-                catch {
-                    dispatch_async(dispatch_get_main_queue()) {
-                        completion(.InvalidRealm)
                     }
                 }
             }
@@ -96,9 +86,9 @@ public extension Realm {
 
   - returns: An Observable of Void type
   */
-    private static func realmWriteOperationObservable(thread thread: RealmThread, writeOperation: Bool, operation: OperationClosure) -> Observable<Void> {
+    private func realmWriteOperationObservable(thread thread: RealmThread, writeOperation: Bool, operation: OperationClosure) -> Observable<Void> {
         return Observable.create { observer -> Disposable in
-            Realm.realmOperationInThread(thread, writeOperation: writeOperation, completion: { error in
+            self.realmOperationInThread(thread, writeOperation: writeOperation, completion: { error in
                 if let error = error {
                     observer.onError(error)
                 }
@@ -120,7 +110,7 @@ public extension Realm {
 
   - returns: Observable that completes operation
   */
-    static func rx_add<S: SequenceType where S.Generator.Element: Object>(objects: S, update: Bool = false, thread: RealmThread = .BackgroundThread) -> Observable<Void> {
+     func rx_add<S: SequenceType where S.Generator.Element: Object>(objects: S, update: Bool = false, thread: RealmThread = .BackgroundThread) -> Observable<Void> {
         return realmWriteOperationObservable(thread: thread, writeOperation: true) { realm in
             realm.add(objects, update: update)
         }
@@ -136,7 +126,7 @@ public extension Realm {
      
      - returns: Observable that fires the operation
      */
-    static func rx_create<T: Object>(type: T.Type, value: AnyObject = [:], update: Bool = false, thread: RealmThread = .BackgroundThread) -> Observable<Void> {
+     func rx_create<T: Object>(type: T.Type, value: AnyObject = [:], update: Bool = false, thread: RealmThread = .BackgroundThread) -> Observable<Void> {
         return realmWriteOperationObservable(thread: thread, writeOperation: true) { realm in
             realm.create(type, value: value, update: update)
         }
@@ -153,7 +143,7 @@ public extension Realm {
 
   - returns: Observable that fires the operation
   */
-    static func rx_delete(object: Object, thread: RealmThread) -> Observable<Void> {
+     func rx_delete(object: Object, thread: RealmThread) -> Observable<Void> {
         return realmWriteOperationObservable(thread: thread, writeOperation: true) { realm in
             realm.delete(object)
         }
@@ -167,7 +157,7 @@ public extension Realm {
 
    - returns: Observable that fires the operation
    */
-    static func rx_delete<S: SequenceType where S.Generator.Element: Object>(objects: S, thread: RealmThread) -> Observable<Void> {
+     func rx_delete<S: SequenceType where S.Generator.Element: Object>(objects: S, thread: RealmThread) -> Observable<Void> {
         return realmWriteOperationObservable(thread: thread, writeOperation: true) { realm in
             realm.delete(objects)
         }
@@ -181,7 +171,7 @@ public extension Realm {
 
    - returns: Observable that fires the operation
    */
-    static func rx_delete<T: Object>(objects: List<T>, thread: RealmThread) -> Observable<Void> {
+     func rx_delete<T: Object>(objects: List<T>, thread: RealmThread) -> Observable<Void> {
         return realmWriteOperationObservable(thread: thread, writeOperation: true)  { realm in
             realm.delete(objects)
         }
@@ -195,7 +185,7 @@ public extension Realm {
 
    - returns: Observable that fires the operation
    */
-    static func rx_delete<T: Object>(objects: Results<T>, thread: RealmThread) ->  Observable<Void> {
+     func rx_delete<T: Object>(objects: Results<T>, thread: RealmThread) ->  Observable<Void> {
         return realmWriteOperationObservable(thread: thread, writeOperation: true) { realm in
             realm.delete(objects)
         }
@@ -208,7 +198,7 @@ public extension Realm {
 
    - returns: Observable that fires the operation
    */
-    static func rx_deleteAll(thread: RealmThread) -> Observable<Void> {
+     func rx_deleteAll(thread: RealmThread) -> Observable<Void> {
         return realmWriteOperationObservable(thread: thread, writeOperation: true) { realm in
             realm.deleteAll()
         }
@@ -226,15 +216,14 @@ public extension Realm {
 
   - returns: Observable containing Results for the Type
   */
-    static func rx_objects<T: Object>(type: T.Type) -> Observable<RealmSwift.Results<T>> {
+     func rx_objects<T: Object>(type: T.Type) -> Observable<RealmSwift.Results<T>> {
         return Observable.create { observer in
             if !NSThread.isMainThread() {
                 observer.onError(RealmError.InvalidReadThread)
             }
             else {
                 do {
-                    let realm = try Realm()
-                    observer.onNext(realm.objects(type))
+                    observer.onNext(self.objects(type))
                     observer.onCompleted()
                 }
                 catch  {
@@ -253,19 +242,15 @@ public extension Realm {
 
    - returns: Observable containing the object associated with `key`
    */
-    static func rx_objectForPrimaryKey<T: Object>(type: T.Type, key: AnyObject) -> Observable<T?> {
+     func rx_objectForPrimaryKey<T: Object>(type: T.Type, key: AnyObject) -> Observable<T?> {
         return Observable.create { observer in
             if !NSThread.isMainThread() {
                 observer.onError(RealmError.InvalidReadThread)
             }
             else {
                 do {
-                    let realm = try Realm()
-                    observer.onNext(realm.objectForPrimaryKey(type, key: key))
+                    observer.onNext(self.objectForPrimaryKey(type, key: key))
                     observer.onCompleted()
-                }
-                catch  {
-                    observer.onError(RealmError.InvalidRealm)
                 }
             }
             return NopDisposable.instance
